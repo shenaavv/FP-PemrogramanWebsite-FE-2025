@@ -23,8 +23,10 @@ interface AuthUser {
 
 export default function Navbar() {
   const user = useAuthStore((state) => state.user);
+  const token = useAuthStore((state) => state.token);
   const location = useLocation();
 
+  const isAuthenticated = !!(token && user);
   const isExplorePage = location.pathname === "/";
   const isMyProjectsPage = location.pathname === "/my-projects";
 
@@ -35,22 +37,38 @@ export default function Navbar() {
           <img src={logo} alt="WordIT Logo" className="h-8" />
         </a>
 
-        <div className="hidden md:flex items-center gap-2">
-          <Button variant={isExplorePage ? "secondary" : "ghost"} asChild>
-            <a href="/" className="flex items-center gap-2">
-              <Compass />
-              <span>Explore</span>
-            </a>
-          </Button>
+        {isAuthenticated ? (
+          <>
+            <div className="hidden md:flex items-center gap-2">
+              <Button variant={isExplorePage ? "secondary" : "ghost"} asChild>
+                <a href="/" className="flex items-center gap-2">
+                  <Compass />
+                  <span>Explore</span>
+                </a>
+              </Button>
 
-          <Button variant={isMyProjectsPage ? "secondary" : "ghost"} asChild>
-            <a href="/my-projects" className="flex items-center gap-2">
-              <FolderKanban />
-              <span>My Projects</span>
-            </a>
-          </Button>
-        </div>
-        <ProfileDropdown user={user} />
+              <Button
+                variant={isMyProjectsPage ? "secondary" : "ghost"}
+                asChild
+              >
+                <a href="/my-projects" className="flex items-center gap-2">
+                  <FolderKanban />
+                  <span>My Projects</span>
+                </a>
+              </Button>
+            </div>
+            <ProfileDropdown user={user} />
+          </>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" asChild>
+              <a href="/login">Login</a>
+            </Button>
+            <Button variant="default" asChild>
+              <a href="/register">Register</a>
+            </Button>
+          </div>
+        )}
       </div>
     </nav>
   );

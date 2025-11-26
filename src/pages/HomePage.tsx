@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "@/api/axios";
+import { useAuthStore } from "@/store/useAuthStore";
 import { User, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,10 @@ type Game = {
 };
 
 export default function HomePage() {
+  const token = useAuthStore((state) => state.token);
+  const user = useAuthStore((state) => state.user);
+  const isAuthenticated = !!(token && user);
+
   const [games, setGames] = useState<Game[]>([]);
   const [gameTemplates, setGameTemplates] = useState<GameTemplate[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -181,6 +186,10 @@ export default function HomePage() {
 
   const GameCard = ({ game }: { game: Game }) => {
     const handlePlayGame = () => {
+      if (!isAuthenticated) {
+        window.location.href = "/login";
+        return;
+      }
       window.location.href = `/quiz/play/${game.id}`;
     };
 
@@ -226,23 +235,25 @@ export default function HomePage() {
               </span>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div
-                className="flex items-center gap-1 cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={(e) => handleLike(e, game.id)}
-              >
-                <img
-                  src={game.is_liked ? iconHeartSolid : iconHeart}
-                  alt="Likes"
-                  className="w-3.5 h-3.5"
-                />
-                <span>{game.total_liked}</span>
+            {isAuthenticated && (
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex items-center gap-1 cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={(e) => handleLike(e, game.id)}
+                >
+                  <img
+                    src={game.is_liked ? iconHeartSolid : iconHeart}
+                    alt="Likes"
+                    className="w-3.5 h-3.5"
+                  />
+                  <span>{game.total_liked}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <img src={iconPlay} alt="Plays" className="w-3.5 h-3.5" />
+                  <span>{game.total_played} plays</span>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                <img src={iconPlay} alt="Plays" className="w-3.5 h-3.5" />
-                <span>{game.total_played} plays</span>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </Card>
@@ -281,138 +292,140 @@ export default function HomePage() {
           </Typography>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-4 mb-8">
-          <div className="relative flex-1">
-            <img
-              src={iconSearch}
-              alt=""
-              className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-            />
-            <Input
-              placeholder="Search games..."
-              className="pl-10 bg-white"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
+        {isAuthenticated && (
+          <div className="flex flex-col md:flex-row gap-4 mb-8">
+            <div className="relative flex-1">
+              <img
+                src={iconSearch}
+                alt=""
+                className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+              />
+              <Input
+                placeholder="Search games..."
+                className="pl-10 bg-white"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
 
-          <div className="flex gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="bg-white">
-                  Latest <ChevronDown className="ml-2 h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setOrderByCreatedAt("desc");
-                    setOrderByLikeAmount(null);
-                    setOrderByPlayAmount(null);
-                  }}
-                >
-                  Newest First
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setOrderByCreatedAt("asc");
-                    setOrderByLikeAmount(null);
-                    setOrderByPlayAmount(null);
-                  }}
-                >
-                  Oldest First
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="bg-white">
-                  Popular <ChevronDown className="ml-2 h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuLabel>Sort by Likes</DropdownMenuLabel>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setOrderByLikeAmount("desc");
-                    setOrderByCreatedAt(null);
-                    setOrderByPlayAmount(null);
-                  }}
-                >
-                  Most Liked
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setOrderByLikeAmount("asc");
-                    setOrderByCreatedAt(null);
-                    setOrderByPlayAmount(null);
-                  }}
-                >
-                  Least Liked
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel>Sort by Plays</DropdownMenuLabel>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setOrderByPlayAmount("desc");
-                    setOrderByCreatedAt(null);
-                    setOrderByLikeAmount(null);
-                  }}
-                >
-                  Most Played
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setOrderByPlayAmount("asc");
-                    setOrderByCreatedAt(null);
-                    setOrderByLikeAmount(null);
-                  }}
-                >
-                  Least Played
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="bg-white w-10 px-0"
-                >
-                  <img src={iconVector} alt="Filter" className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>Sort by Name</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => setOrderByName("asc")}>
-                  A to Z
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setOrderByName("desc")}>
-                  Z to A
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setOrderByName(null)}>
-                  Clear Name Sort
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel>Filter by Type</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => setGameTypeSlug(null)}>
-                  All Types
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {gameTemplates.map((template) => (
+            <div className="flex gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="bg-white">
+                    Latest <ChevronDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
                   <DropdownMenuItem
-                    key={template.id}
-                    onClick={() => setGameTypeSlug(template.slug)}
+                    onClick={() => {
+                      setOrderByCreatedAt("desc");
+                      setOrderByLikeAmount(null);
+                      setOrderByPlayAmount(null);
+                    }}
                   >
-                    {template.name}
+                    Newest First
                   </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setOrderByCreatedAt("asc");
+                      setOrderByLikeAmount(null);
+                      setOrderByPlayAmount(null);
+                    }}
+                  >
+                    Oldest First
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="bg-white">
+                    Popular <ChevronDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuLabel>Sort by Likes</DropdownMenuLabel>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setOrderByLikeAmount("desc");
+                      setOrderByCreatedAt(null);
+                      setOrderByPlayAmount(null);
+                    }}
+                  >
+                    Most Liked
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setOrderByLikeAmount("asc");
+                      setOrderByCreatedAt(null);
+                      setOrderByPlayAmount(null);
+                    }}
+                  >
+                    Least Liked
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Sort by Plays</DropdownMenuLabel>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setOrderByPlayAmount("desc");
+                      setOrderByCreatedAt(null);
+                      setOrderByLikeAmount(null);
+                    }}
+                  >
+                    Most Played
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setOrderByPlayAmount("asc");
+                      setOrderByCreatedAt(null);
+                      setOrderByLikeAmount(null);
+                    }}
+                  >
+                    Least Played
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="bg-white w-10 px-0"
+                  >
+                    <img src={iconVector} alt="Filter" className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>Sort by Name</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => setOrderByName("asc")}>
+                    A to Z
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setOrderByName("desc")}>
+                    Z to A
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setOrderByName(null)}>
+                    Clear Name Sort
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Filter by Type</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => setGameTypeSlug(null)}>
+                    All Types
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {gameTemplates.map((template) => (
+                    <DropdownMenuItem
+                      key={template.id}
+                      onClick={() => setGameTypeSlug(template.slug)}
+                    >
+                      {template.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {games.length > 0 ? (

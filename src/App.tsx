@@ -14,12 +14,12 @@ function App() {
   return (
     <>
       <Routes>
+        <Route path="/" element={<HomePage />} />
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
         <Route path="/sandbox" element={<Sandbox />} />
 
         <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<HomePage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/my-projects" element={<MyProjectsPage />} />
           <Route path="/create-quiz" element={<CreateQuiz />} />
