@@ -31,17 +31,15 @@ import toast from "react-hot-toast";
 
 interface QuestionItem {
   id: number;
+  real_id?: number;
   word: string;
   imageFile: File | null;
   previewUrl: string | null;
 }
 
-interface QuestionDataPayload {
-  correct_word: string;
-  question_image_array_index?: number | string;
-}
-
 interface ApiQuestion {
+  id?: number;
+  question_id?: number;
   correct_word?: string;
   image_url?: string | null;
 }
@@ -112,6 +110,7 @@ const EditAnagram = () => {
 
             return {
               id: Date.now() + idx,
+              real_id: q.question_id || q.id,
               word: q.correct_word || "",
               imageFile: null,
               previewUrl: imageUrl,
@@ -185,6 +184,7 @@ const EditAnagram = () => {
   };
 
   const handleSubmit = async (publish = false) => {
+    // 1. Validasi Input
     if (!gameInfo.name) {
       toast.error("Game Title is required!");
       return;
@@ -195,6 +195,7 @@ const EditAnagram = () => {
         toast.error(`Question ${i + 1}: Correct Answer (Word) is required!`);
         return;
       }
+      // Validasi gambar: Harus ada File baru ATAU URL preview lama
       if (!questions[i].imageFile && !questions[i].previewUrl) {
         toast.error(`Question ${i + 1}: Image Hint is required!`);
         return;
@@ -206,6 +207,7 @@ const EditAnagram = () => {
     try {
       const formData = new FormData();
 
+      // 2. Append Info Dasar
       formData.append("name", gameInfo.name);
       formData.append("description", gameInfo.description);
       formData.append(
@@ -221,40 +223,54 @@ const EditAnagram = () => {
         formData.append("thumbnail_image", thumbnail);
       }
 
+      // 3. Logic Gambar Baru (FIXED)
+      // Kita pisahkan file fisik dan logikanya biar gak error 422
       const filesToUpload: File[] = [];
-      const questionImageIndex: (number | string | undefined)[] = [];
+      const questionFileMap: Record<number, number> = {}; // Map index soal -> index file
 
-      questions.forEach((q) => {
+      questions.forEach((q, index) => {
         if (q.imageFile) {
-          questionImageIndex.push(filesToUpload.length);
+          // Hanya jika user upload gambar baru, kita catat indexnya
+          questionFileMap[index] = filesToUpload.length;
           filesToUpload.push(q.imageFile);
-        } else if (q.previewUrl) {
-          const base = import.meta.env.VITE_API_URL ?? "";
-          const relative = q.previewUrl.replace(base + "/", "");
-          questionImageIndex.push(relative);
-        } else {
-          questionImageIndex.push(undefined);
         }
+        // Jika pakai gambar lama (previewUrl), skip aja. Jangan push string ke file array.
       });
 
+      // Masukkan file fisik ke formData
       filesToUpload.forEach((f) => {
         formData.append("files_to_upload", f);
       });
 
-      const questionsPayload: QuestionDataPayload[] = questions.map(
-        (q, idx) => {
-          const payload: QuestionDataPayload = {
-            correct_word: q.word.toUpperCase(),
-          };
-          const imgIdx = questionImageIndex[idx];
-          if (imgIdx !== undefined) {
-            payload.question_image_array_index = imgIdx;
-          }
-          return payload;
-        },
-      );
+      // 4. Buat Payload JSON (FIXED - Logic ID & Image di dalam Map)
+      const questionsPayload = questions.map((q, idx) => {
+        // Pakai 'any' biar aman nambah properti dinamis
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const payload: any = {
+          correct_word: q.word.toUpperCase(),
+        };
+
+        // A. Masukkan ID Asli (PENTING BUAT EDIT/UPDATE)
+        if (q.real_id) {
+          // Note: Cek backend kamu mintanya 'question_id' atau 'id'.
+          // Biasanya untuk update data nested pakai 'question_id' atau 'id'.
+          payload.question_id = q.real_id;
+        }
+
+        // B. Masukkan Index Gambar (Hanya jika ada gambar BARU)
+        if (questionFileMap[idx] !== undefined) {
+          payload.question_image_array_index = questionFileMap[idx];
+        }
+        // Jika tidak ada gambar baru, field question_image_array_index TIDAK DIKIRIM.
+        // Backend akan otomatis mempertahankan gambar lama.
+
+        return payload;
+      });
 
       formData.append("questions", JSON.stringify(questionsPayload));
+
+      // Debugging: Cek console browser kalau masih error
+      console.log("Payload Questions:", questionsPayload);
 
       await api.patch(`/api/game/anagram/${id}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -264,7 +280,9 @@ const EditAnagram = () => {
       navigate("/my-projects");
     } catch (error: unknown) {
       console.error(error);
-      toast.error(`Error: ${(error as Error).message}`);
+      // @ts-expect-error: response property exists on AxiosError but not on generic Error
+      const msg = error?.response?.data?.message || (error as Error).message;
+      toast.error(`Error: ${msg}`);
     } finally {
       setIsLoading(false);
     }

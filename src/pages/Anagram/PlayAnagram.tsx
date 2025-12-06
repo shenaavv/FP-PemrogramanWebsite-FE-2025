@@ -11,6 +11,7 @@ import {
   Trophy,
   Home,
   X,
+  Lightbulb,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { Button } from "@/components/ui/button";
@@ -74,6 +75,9 @@ const PlayAnagram = () => {
   const [showWrong, setShowWrong] = useState(false);
   const [earnedScore, setEarnedScore] = useState(0);
   const [showError, setShowError] = useState(false);
+  const [errorSlotIndex, setErrorSlotIndex] = useState<number | null>(null);
+  const [hintsUsed, setHintsUsed] = useState(0);
+  const [globalHintsUsed, setGlobalHintsUsed] = useState(false);
 
   // Track which questions have been answered (by question_id)
   const [answeredQuestions, setAnsweredQuestions] = useState<Set<string>>(
@@ -201,6 +205,7 @@ const PlayAnagram = () => {
       setShowCorrect(false);
       setShowWrong(false);
       setEarnedScore(0);
+      setHintsUsed(0);
     }
   }, [currentQuestionIndex, gameData, answeredQuestions]);
 
@@ -220,6 +225,33 @@ const PlayAnagram = () => {
 
   // Track if user made any mistakes during this question
   const [hadWrongInput, setHadWrongInput] = useState(false);
+
+  const findNextUnansweredQuestionIndex = useCallback(
+    (startIndex: number) => {
+      if (!gameData) return -1;
+
+      const total = gameData.questions.length;
+
+      // Cari pertanyaan yang belum dijawab, mulai dari index saat ini + 1
+      for (let i = startIndex + 1; i < total; i++) {
+        const questionId = gameData.questions[i].question_id;
+        if (!answeredQuestions.has(questionId)) {
+          return i; // Ditemukan pertanyaan selanjutnya yang belum dijawab
+        }
+      }
+
+      // Jika tidak ada di depan, cari dari awal (misal Page 1 belum dijawab)
+      for (let i = 0; i < startIndex; i++) {
+        const questionId = gameData.questions[i].question_id;
+        if (!answeredQuestions.has(questionId)) {
+          return i; // Ditemukan pertanyaan sebelumnya yang belum dijawab
+        }
+      }
+
+      return -1; // Semua sudah dijawab
+    },
+    [gameData, answeredQuestions],
+  );
 
   // ✅ AUTO-CHECK DAN NEXT - DENGAN SCORING YANG BENAR
   useEffect(() => {
@@ -264,7 +296,7 @@ const PlayAnagram = () => {
       // Calculate score based on whether user made mistakes
       // Perfect: letterCount × 2
       // Wrong input: letterCount × 1
-      const multiplier = hadWrongInput ? 1 : 2;
+      const multiplier = hadWrongInput || hintsUsed > 0 ? 1 : 2;
       const points = letterCount * multiplier;
 
       setEarnedScore(points);
@@ -287,11 +319,13 @@ const PlayAnagram = () => {
       // Auto next question
       setTimeout(() => {
         setShowCorrect(false);
-        setHadWrongInput(false); // Reset for next question
-        if (currentQuestionIndex < gameData.questions.length - 1) {
-          setCurrentQuestionIndex((prev: number) => prev + 1);
+        setHadWrongInput(false);
+        const nextIndex = findNextUnansweredQuestionIndex(currentQuestionIndex);
+        if (nextIndex !== -1) {
+          // Pindah ke pertanyaan berikutnya yang belum dijawab
+          setCurrentQuestionIndex(nextIndex);
         } else {
-          // Game finished
+          // Jika nextIndex adalah -1, berarti SEMUA sudah dijawab. Game selesai.
           setGameFinished(true);
         }
       }, 800);
@@ -306,6 +340,8 @@ const PlayAnagram = () => {
     showWrong,
     showCorrect,
     hadWrongInput,
+    hintsUsed,
+    findNextUnansweredQuestionIndex,
   ]);
 
   // --- HANDLERS (Dipindahkan ke atas sebelum keyboard handler) ---
@@ -327,9 +363,15 @@ const PlayAnagram = () => {
       const clickedLetter = availableLetters[index].letter;
 
       if (!isLetterCorrect(clickedLetter, firstEmptySlot)) {
+        // 🛑 UBAH LOGIC ERROR DI SINI 🛑
+        setErrorSlotIndex(firstEmptySlot); // <-- Tentukan slot mana yang error
         setShowError(true);
-        setHadWrongInput(true); // Mark that user made a mistake
-        setTimeout(() => setShowError(false), 500);
+        setHadWrongInput(true);
+        // Reset setelah 500ms (sesuai durasi animasinya)
+        setTimeout(() => {
+          setShowError(false);
+          setErrorSlotIndex(null); // <-- Reset index error
+        }, 500);
         return;
       }
 
@@ -394,6 +436,59 @@ const PlayAnagram = () => {
     [answerSlots, availableLetters, isChecking, showWrong, showCorrect],
   );
 
+  const handleHint = useCallback(() => {
+    if (!gameData || isChecking || showWrong || showCorrect) return;
+
+    // 1. Hitung Limit Hint
+    const currentQuestion = gameData.questions[currentQuestionIndex];
+    const correctWordNoSpaces = currentQuestion.correct_word.replace(/\s/g, "");
+    const wordLength = correctWordNoSpaces.length;
+
+    // Logic: < 5 huruf = 1 hint. Setiap 5 huruf berikutnya +1 hint.
+    // Length 4 -> floor(0.8) + 1 = 1
+    // Length 5 -> floor(1) + 1 = 2
+    // Length 10 -> floor(2) + 1 = 3
+    const maxHints = Math.floor((wordLength - 1) / 5) + 1;
+
+    if (hintsUsed >= maxHints) return; // Limit reached
+
+    // 2. Cari slot kosong pertama
+    const firstEmptyIndex = answerSlots.findIndex((slot) => slot === null);
+    if (firstEmptyIndex === -1) return; // Full
+
+    // 3. Tentukan huruf yang benar
+    const correctLetter = correctWordNoSpaces[firstEmptyIndex];
+
+    // 4. Cari huruf tersebut di availableLetters yang belum terpakai
+    // Kita harus mencari index di availableLetters yang cocok
+    const availableIndex = availableLetters.findIndex(
+      (l) => l.letter.toUpperCase() === correctLetter.toUpperCase() && !l.used,
+    );
+
+    if (availableIndex !== -1) {
+      // Update State
+      const newAnswerSlots = [...answerSlots];
+      newAnswerSlots[firstEmptyIndex] = availableLetters[availableIndex].letter;
+      setAnswerSlots(newAnswerSlots);
+
+      const newAvailableLetters = [...availableLetters];
+      newAvailableLetters[availableIndex].used = true;
+      setAvailableLetters(newAvailableLetters);
+
+      setHintsUsed((prev) => prev + 1);
+      setGlobalHintsUsed(true); // Mark global score as dirty
+    }
+  }, [
+    gameData,
+    currentQuestionIndex,
+    hintsUsed,
+    answerSlots,
+    availableLetters,
+    isChecking,
+    showCorrect,
+    showWrong,
+  ]);
+
   // Keyboard support dengan validasi
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -413,6 +508,7 @@ const PlayAnagram = () => {
         );
 
         if (firstEmptySlot !== -1 && !isLetterCorrect(key, firstEmptySlot)) {
+          setErrorSlotIndex(firstEmptySlot); // <-- Tentukan slot mana yang error
           setShowError(true);
           setHadWrongInput(true); // Mark that user made a mistake
           setTimeout(() => setShowError(false), 500);
@@ -523,7 +619,13 @@ const PlayAnagram = () => {
   const currentQuestion = gameData?.questions[currentQuestionIndex];
   const totalQuestions =
     gameData?.questions.length || TOTAL_QUESTIONS_PLACEHOLDER;
-  const isPerfect = correctAnswers === totalQuestions;
+  const isPerfect = correctAnswers === totalQuestions && !globalHintsUsed;
+
+  let maxHints = 0;
+  if (currentQuestion) {
+    const len = currentQuestion.correct_word.replace(/\s/g, "").length;
+    maxHints = Math.floor((len - 1) / 5) + 1;
+  }
 
   // --- LOADING & ERROR STATES ---
   if (isLoading)
@@ -658,15 +760,6 @@ const PlayAnagram = () => {
         </div>
       </div>
 
-      {/* ERROR INDICATOR */}
-      {showError && (
-        <div className="w-full max-w-lg bg-red-100 border-2 border-red-500 rounded-lg p-3 mb-4 animate-pulse">
-          <p className="text-red-700 font-bold text-center">
-            ❌ Wrong letter for this position!
-          </p>
-        </div>
-      )}
-
       {/* ALREADY ANSWERED INDICATOR */}
       {currentQuestion &&
         answeredQuestions.has(currentQuestion.question_id) && (
@@ -693,23 +786,53 @@ const PlayAnagram = () => {
           />
         </div>
 
+        {/* HINT BUTTON */}
+        <div className="w-full flex justify-end mb-2">
+          <Button
+            onClick={handleHint}
+            disabled={
+              hintsUsed >= maxHints ||
+              answeredQuestions.has(currentQuestion.question_id)
+            }
+            className={`flex items-center gap-2 transition-all ${
+              hintsUsed >= maxHints
+                ? "bg-slate-200 text-slate-400 cursor-not-allowed"
+                : "bg-amber-100 text-amber-600 hover:bg-amber-200 border border-amber-300"
+            }`}
+          >
+            <Lightbulb
+              className={`w-4 h-4 ${hintsUsed < maxHints ? "fill-amber-500" : ""}`}
+            />
+            <span className="text-sm font-bold">
+              Hint ({hintsUsed}/{maxHints})
+            </span>
+          </Button>
+        </div>
+
         {/* Slot Jawaban, rounded-full */}
         <div className="flex justify-center gap-2 mb-8 flex-wrap">
           {answerSlots.map((letter, i) => (
             <div
               key={`slot-${i}`}
               onClick={() => handleSlotClick(i)}
-              className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-2xl transition-all ${
-                letter
-                  ? showWrong
-                    ? "bg-red-500 text-white shadow-md"
-                    : showCorrect
-                      ? "bg-green-500 text-white shadow-md"
-                      : "bg-blue-500 text-white shadow-md hover:bg-blue-600 cursor-pointer"
-                  : "border-4 border-dashed border-slate-300 bg-white"
+              className={`relative w-14 h-14 rounded-full flex items-center justify-center font-bold text-2xl transition-all ${
+                i === errorSlotIndex && showError
+                  ? "border-red-500 bg-red-100 animate-shake cursor-not-allowed"
+                  : letter
+                    ? showWrong
+                      ? "bg-red-500 text-white shadow-md"
+                      : showCorrect
+                        ? "bg-green-500 text-white shadow-md"
+                        : "bg-blue-500 text-white shadow-md hover:bg-blue-600 cursor-pointer"
+                    : "border-4 border-dashed border-slate-300 bg-white hover:bg-slate-50 cursor-pointer"
               }`}
             >
-              {letter || ""}
+              {/* X ICON KALO SALAH PENCET */}
+              {i === errorSlotIndex && showError ? (
+                <X className="w-10 h-10 text-red-600 absolute inset-0 m-auto" />
+              ) : (
+                letter || ""
+              )}
             </div>
           ))}
         </div>
