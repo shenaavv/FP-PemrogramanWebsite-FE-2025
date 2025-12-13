@@ -31,6 +31,11 @@ import CreateSlidingPuzzle from "./pages/sliding-puzzle/CreateSlidingPuzzle";
 import EditSlidingPuzzle from "./pages/sliding-puzzle/EditSlidingPuzzle";
 import PlaySlidingPuzzle from "./pages/sliding-puzzle/PlaySlidingPuzzle";
 
+// 📌 TAMBAHAN 2: Import Komponen Game Whack-a-Mole
+import WhackAMoleGame from "./pages/whack-a-mole";
+import CreateWhackAMole from "./pages/whack-a-mole/create";
+import EditWhackAMole from "./pages/whack-a-mole/edit";
+
 function App() {
   return (
     <>
@@ -48,6 +53,7 @@ function App() {
           path="/pair-or-no-pair/play/:gameId"
           element={<PairOrNoPairGame />}
         />
+        <Route path="/whack-a-mole/play/:gameId" element={<WhackAMoleGame />} />
         <Route
           path="/sliding-puzzle/play/:id"
           element={<PlaySlidingPuzzle />}
@@ -70,6 +76,8 @@ function App() {
             path="/create-pair-or-no-pair"
             element={<CreatePairOrNoPair />}
           />
+          <Route path="/create-whack-a-mole" element={<CreateWhackAMole />} />
+          <Route path="/whack-a-mole/edit/:id" element={<EditWhackAMole />} />
           <Route path="/create-maze-chase" element={<CreateMazeChase />} />
           <Route path="/create-anagram" element={<CreateAnagram />} />
           <Route path="/quiz/edit/:id" element={<EditQuiz />} />
