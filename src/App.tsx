@@ -1,3 +1,8 @@
+import CreateCompleteTheSentence from "./pages/complete-the-sentence/CreateCompleteTheSentence";
+<Route
+  path="/create-complete-the-sentence"
+  element={<CreateCompleteTheSentence />}
+/>;
 import { Route, Routes } from "react-router-dom";
 import CreateProject from "./pages/CreateProject";
 import CreateQuiz from "./pages/CreateQuiz";
@@ -18,6 +23,7 @@ import EditAnagram from "./pages/Anagram/EditAnagram";
 import MazeChase from "./pages/maze-chase/MazeChase";
 import CreateMazeChase from "./pages/maze-chase/CreateMazeChase";
 import EditMazeChase from "./pages/maze-chase/EditMazeChase";
+import CompleteTheSentenceGame from "./pages/complete-the-sentence/CompleteTheSentenceGame";
 
 import OpenTheBoxGame from "./pages/open-the-box";
 import CreateOpenTheBox from "./pages/open-the-box/createOpenTheBox";
@@ -65,6 +71,10 @@ function App() {
         <Route path="/flip-tiles/play/:id" element={<FlipTiles />} />
         <Route path="/speed-sorting/play/:id" element={<SpeedSorting />} />
         <Route path="/anagram/play/:id" element={<PlayAnagram />} />
+        <Route
+          path="/complete-the-sentence/play/:id"
+          element={<CompleteTheSentenceGame />}
+        />
         <Route
           path="/pair-or-no-pair/play/:gameId"
           element={<PairOrNoPairGame />}
