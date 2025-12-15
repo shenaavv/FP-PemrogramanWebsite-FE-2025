@@ -1,8 +1,3 @@
-import CreateCompleteTheSentence from "./pages/complete-the-sentence/CreateCompleteTheSentence";
-<Route
-  path="/create-complete-the-sentence"
-  element={<CreateCompleteTheSentence />}
-/>;
 import { Route, Routes } from "react-router-dom";
 import CreateProject from "./pages/CreateProject";
 import CreateQuiz from "./pages/CreateQuiz";
@@ -24,6 +19,8 @@ import MazeChase from "./pages/maze-chase/MazeChase";
 import CreateMazeChase from "./pages/maze-chase/CreateMazeChase";
 import EditMazeChase from "./pages/maze-chase/EditMazeChase";
 import CompleteTheSentenceGame from "./pages/complete-the-sentence/CompleteTheSentenceGame";
+import CreateCompleteTheSentence from "./pages/complete-the-sentence/CreateCompleteTheSentence";
+import EditCompleteTheSentence from "./pages/complete-the-sentence/EditCompleteTheSentence";
 
 import OpenTheBoxGame from "./pages/open-the-box";
 import CreateOpenTheBox from "./pages/open-the-box/createOpenTheBox";
@@ -63,9 +60,7 @@ function App() {
         <Route path="/sandbox" element={<Sandbox />} />
         <Route path="/quiz/play/:id" element={<Quiz />} />
         <Route path="/open-the-box/play/:id" element={<OpenTheBoxGame />} />
-
         <Route path="/create-open-the-box" element={<CreateOpenTheBox />} />
-
         <Route path="/type-the-answer/play/:id" element={<TypeTheAnswer />} />
         <Route path="/maze-chase/play/:id" element={<MazeChase />} />
         <Route path="/flip-tiles/play/:id" element={<FlipTiles />} />
@@ -74,6 +69,15 @@ function App() {
         <Route
           path="/complete-the-sentence/play/:id"
           element={<CompleteTheSentenceGame />}
+        />
+        <Route
+          path="/create-complete-the-sentence"
+          element={<CreateCompleteTheSentence />}
+        />
+        ;
+        <Route
+          path="/complete-the-sentence/edit/:id"
+          element={<EditCompleteTheSentence />}
         />
         <Route
           path="/pair-or-no-pair/play/:gameId"
@@ -85,7 +89,6 @@ function App() {
           path="/sliding-puzzle/play/:id"
           element={<PlaySlidingPuzzle />}
         />
-
         <Route element={<ProtectedRoute />}>
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/my-projects" element={<MyProjectsPage />} />
