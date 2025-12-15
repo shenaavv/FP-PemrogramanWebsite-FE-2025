@@ -31,6 +31,7 @@ type Project = {
   name: string;
   description: string;
   thumbnail_image: string | null;
+
   is_published: boolean;
   game_template_name: string;
   game_template_slug: string;
@@ -72,10 +73,12 @@ export default function MyProjectsPage() {
 
   const handleUpdateStatus = async (gameId: string, isPublish: boolean) => {
     try {
-      await api.patch("/api/game/", {
-        game_id: gameId,
-        is_publish: isPublish,
-      });
+      await api.patch(
+        `/api/game/game-type/complete-the-sentence/${gameId}/publish`,
+        {
+          is_published: isPublish,
+        },
+      );
 
       setProjects((prev) =>
         prev.map((p) =>
@@ -186,9 +189,49 @@ export default function MyProjectsPage() {
                       size="sm"
                       className="h-7"
                       onClick={() => {
-                        navigate(
-                          `/${project.game_template_slug}/play/${project.id}`,
-                        );
+                        // Map slug to correct play route
+                        let playUrl = "";
+                        switch (project.game_template_slug) {
+                          case "complete-the-sentence":
+                            playUrl = `/complete-the-sentence/play/${project.id}`;
+                            break;
+                          case "quiz":
+                            playUrl = `/quiz/play/${project.id}`;
+                            break;
+                          case "maze-chase":
+                            playUrl = `/maze-chase/play/${project.id}`;
+                            break;
+                          case "open-the-box":
+                            playUrl = `/open-the-box/play/${project.id}`;
+                            break;
+                          case "pair-or-no-pair":
+                            playUrl = `/pair-or-no-pair/play/${project.id}`;
+                            break;
+                          case "speed-sorting":
+                            playUrl = `/speed-sorting/play/${project.id}`;
+                            break;
+                          case "anagram":
+                            playUrl = `/anagram/play/${project.id}`;
+                            break;
+                          case "true-or-false":
+                            playUrl = `/true-or-false/play/${project.id}`;
+                            break;
+                          case "whack-a-mole":
+                            playUrl = `/whack-a-mole/play/${project.id}`;
+                            break;
+                          case "sliding-puzzle":
+                            playUrl = `/sliding-puzzle/play/${project.id}`;
+                            break;
+                          case "flip-tiles":
+                            playUrl = `/flip-tiles/play/${project.id}`;
+                            break;
+                          case "type-the-answer":
+                            playUrl = `/type-the-answer/play/${project.id}`;
+                            break;
+                          default:
+                            playUrl = `/play/${project.game_template_slug}/${project.id}`;
+                        }
+                        navigate(playUrl);
                       }}
                     >
                       <Play />
@@ -200,9 +243,49 @@ export default function MyProjectsPage() {
                     size="sm"
                     className="h-7"
                     onClick={() => {
-                      navigate(
-                        `/${project.game_template_slug}/edit/${project.id}`,
-                      );
+                      // Map slug to correct edit route
+                      let editUrl = "";
+                      switch (project.game_template_slug) {
+                        case "complete-the-sentence":
+                          editUrl = `/complete-the-sentence/edit/${project.id}`;
+                          break;
+                        case "quiz":
+                          editUrl = `/quiz/edit/${project.id}`;
+                          break;
+                        case "maze-chase":
+                          editUrl = `/maze-chase/edit/${project.id}`;
+                          break;
+                        case "open-the-box":
+                          editUrl = `/open-the-box/edit/${project.id}`;
+                          break;
+                        case "pair-or-no-pair":
+                          editUrl = `/pair-or-no-pair/edit/${project.id}`;
+                          break;
+                        case "speed-sorting":
+                          editUrl = `/speed-sorting/edit/${project.id}`;
+                          break;
+                        case "anagram":
+                          editUrl = `/anagram/edit/${project.id}`;
+                          break;
+                        case "true-or-false":
+                          editUrl = `/true-or-false/edit/${project.id}`;
+                          break;
+                        case "whack-a-mole":
+                          editUrl = `/whack-a-mole/edit/${project.id}`;
+                          break;
+                        case "sliding-puzzle":
+                          editUrl = `/sliding-puzzle/edit/${project.id}`;
+                          break;
+                        case "flip-tiles":
+                          editUrl = `/flip-tiles/edit/${project.id}`;
+                          break;
+                        case "type-the-answer":
+                          editUrl = `/type-the-answer/edit/${project.id}`;
+                          break;
+                        default:
+                          editUrl = `/edit/${project.game_template_slug}/${project.id}`;
+                      }
+                      navigate(editUrl);
                     }}
                   >
                     <Edit />

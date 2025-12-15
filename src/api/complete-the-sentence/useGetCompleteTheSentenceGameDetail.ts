@@ -2,11 +2,15 @@ import { useEffect, useState } from "react";
 import api from "@/api/axios";
 
 export interface CompleteTheSentenceQuestion {
-  id: string;
-  left_clause: string;
-  right_clause: string;
-  conjunctions: string[];
+  id?: string;
+  leftClause?: string;
+  rightClause?: string;
+  availableConjunctions?: string[];
+  left_clause?: string;
+  right_clause?: string;
+  conjunctions?: string[];
   explanation?: string;
+  correctAnswer?: string;
 }
 
 export interface CompleteTheSentenceGameData {
@@ -16,6 +20,9 @@ export interface CompleteTheSentenceGameData {
   thumbnail_image: string;
   questions: CompleteTheSentenceQuestion[];
   is_published: boolean;
+  game_json?: {
+    questions: CompleteTheSentenceQuestion[];
+  };
 }
 
 export interface CompleteTheSentenceGameResponse {
@@ -25,10 +32,8 @@ export interface CompleteTheSentenceGameResponse {
   data: CompleteTheSentenceGameData;
 }
 
-export const useGetCompleteTheSentenceGame = (
-  gameId: string,
-  playMode: "public" | "private" = "public",
-) => {
+// For edit (private, with auth)
+export const useGetCompleteTheSentenceGameDetail = (gameId: string) => {
   const [data, setData] = useState<CompleteTheSentenceGameData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -37,12 +42,16 @@ export const useGetCompleteTheSentenceGame = (
     const fetchGame = async () => {
       try {
         setLoading(true);
-        const url =
-          playMode === "private"
-            ? `/api/game/game-type/complete-the-sentence/${gameId}/play/private`
-            : `/api/game/game-type/complete-the-sentence/${gameId}/play/public`;
-        const response = await api.get<CompleteTheSentenceGameResponse>(url);
-        setData(response.data.data);
+        const response = await api.get<CompleteTheSentenceGameResponse>(
+          `/api/game/game-type/complete-the-sentence/${gameId}`,
+        );
+        const rawData = response.data.data;
+        // Map game_json.questions to questions for easier access
+        const mappedData: CompleteTheSentenceGameData = {
+          ...rawData,
+          questions: rawData.game_json?.questions || rawData.questions || [],
+        };
+        setData(mappedData);
         setError(null);
       } catch (err) {
         setError(
@@ -56,7 +65,7 @@ export const useGetCompleteTheSentenceGame = (
     if (gameId) {
       fetchGame();
     }
-  }, [gameId, playMode]);
+  }, [gameId]);
 
   return { data, loading, error };
 };

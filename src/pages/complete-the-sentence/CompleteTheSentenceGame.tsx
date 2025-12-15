@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useGetCompleteTheSentenceGame } from "@/api/complete-the-sentence/useGetCompleteTheSentenceGame";
 import type { CompleteTheSentenceQuestion } from "@/api/complete-the-sentence/useGetCompleteTheSentenceGame";
 import api from "@/api/axios";
-import DraggableOption from "./DraggableOption";
+
 import FeedbackDialog from "./FeedbackDialog";
 
 const PRIMARY_ORANGE = "#E2852E";
@@ -35,34 +35,58 @@ const CompleteTheSentenceGame: React.FC = () => {
   const [draggedConjunction, setDraggedConjunction] = useState<string | null>(
     null,
   );
-  const [gameId] = useState("public"); // Replace with dynamic if needed
+  const { id: urlId } = useParams<{ id: string }>();
+  const location = useLocation();
+  // Determine play mode: public or private
+  const isPreview =
+    location.pathname.includes("/preview") ||
+    location.pathname.includes("/private");
+  const gameId = urlId || "";
 
   // Auth check
   useEffect(() => {
     api
-      .get("/auth/me")
+      .get("/api/auth/me")
       .then(() => setAuthChecked(true))
       .catch(() => navigate("/login"));
   }, [navigate]);
 
   // Use the correct game type for API
-  const { data: gameData, loading } = useGetCompleteTheSentenceGame(gameId);
+  const { data: gameData, loading } = useGetCompleteTheSentenceGame(
+    gameId,
+    isPreview ? "private" : "public",
+  );
 
-  // Prepare 5 random questions for the session
+  // Prepare 5 random questions for the session, mapping API fields
   useEffect(() => {
     if (gameData?.questions?.length) {
-      setSessionQuestions(getRandomQuestions(gameData.questions, 5));
+      // Map API fields to frontend fields
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mappedQuestions = gameData.questions.map((q: any) => ({
+        left_clause: q.leftClause ?? q.left_clause ?? "",
+        right_clause: q.rightClause ?? q.right_clause ?? "",
+        conjunctions: q.availableConjunctions ?? q.conjunctions ?? [],
+        explanation: q.explanation ?? "",
+      }));
+      const count = Math.min(5, mappedQuestions.length);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setSessionQuestions(getRandomQuestions(mappedQuestions as any, count));
     }
   }, [gameData]);
 
   const question = sessionQuestions[currentQuestionIdx];
 
-  // All conjunctions for this question, plus 1-2 random distractors
+  // All conjunctions for this question, plus random distractors (total 3 options)
   const getOptions = () => {
     if (!question) return [];
     const allConjunctions = ["and", "but", "so", "or"];
-    const options = new Set(question.conjunctions);
-    while (options.size < 4) {
+    // Filter out empty strings from question's conjunctions
+    const validConjunctions = question.conjunctions.filter(
+      (c) => c && c.trim() !== "",
+    );
+    const options = new Set(validConjunctions);
+    // Add random distractors until we have 3 options
+    while (options.size < 3) {
       const random =
         allConjunctions[Math.floor(Math.random() * allConjunctions.length)];
       options.add(random);
@@ -74,6 +98,13 @@ const CompleteTheSentenceGame: React.FC = () => {
 
   const handleDrop = (cj: string) => {
     setSelectedConjunction(cj);
+    setFeedback(null);
+    setShowExplanation(false);
+  };
+
+  // Allow unselecting the answer by clicking the blank
+  const handleUnselect = () => {
+    setSelectedConjunction(null);
     setFeedback(null);
     setShowExplanation(false);
   };
@@ -119,7 +150,7 @@ const CompleteTheSentenceGame: React.FC = () => {
         </div>
       </div>
     );
-  if (!question)
+  if (!question && sessionQuestions.length > 0)
     return (
       <div
         className="flex flex-col items-center justify-center h-screen gap-6"
@@ -127,6 +158,24 @@ const CompleteTheSentenceGame: React.FC = () => {
       >
         <div className="text-2xl font-bold" style={{ color: PRIMARY_ORANGE }}>
           Selesai! 🎉
+        </div>
+        <button
+          className="px-8 py-3 rounded-full text-white font-bold text-lg shadow hover:bg-orange-700"
+          style={{ background: PRIMARY_ORANGE }}
+          onClick={handleExit}
+        >
+          Kembali ke Beranda
+        </button>
+      </div>
+    );
+  if (!question && sessionQuestions.length === 0)
+    return (
+      <div
+        className="flex flex-col items-center justify-center h-screen gap-6"
+        style={{ background: PASTEL_YELLOW }}
+      >
+        <div className="text-2xl font-bold" style={{ color: PRIMARY_ORANGE }}>
+          Tidak ada soal tersedia untuk game ini.
         </div>
         <button
           className="px-8 py-3 rounded-full text-white font-bold text-lg shadow hover:bg-orange-700"
@@ -158,43 +207,88 @@ const CompleteTheSentenceGame: React.FC = () => {
             className="bg-white rounded-xl px-4 py-3 shadow flex flex-col gap-1 w-full text-center text-lg font-semibold"
             style={{ color: PRIMARY_ORANGE }}
           >
-            {question.left_clause}{" "}
-            <span className="inline-block min-w-[60px] mx-2 align-middle">
-              <span
-                className="inline-block min-w-[60px] min-h-[36px] border-2 border-dashed rounded-lg text-center align-middle cursor-pointer"
-                style={{ borderColor: PRIMARY_ORANGE, background: SOFT_YELLOW }}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  if (draggedConjunction) handleDrop(draggedConjunction);
-                }}
-              >
-                {selectedConjunction ? (
-                  <span className="font-bold" style={{ color: PRIMARY_ORANGE }}>
-                    {selectedConjunction.toUpperCase()}
+            {/* Show the question as a complete sentence with a blank */}
+            {question && (
+              <div className="flex flex-row items-center justify-center gap-2 flex-wrap">
+                <span
+                  className={question.left_clause ? "" : "text-gray-400 italic"}
+                >
+                  {question.left_clause || "[Left clause]"}
+                </span>
+                <span className="inline-block min-w-[60px] mx-2 align-middle">
+                  <span
+                    className="inline-block min-w-[60px] min-h-[36px] border-2 border-dashed rounded-lg text-center align-middle cursor-pointer bg-yellow-100"
+                    style={{
+                      borderColor: PRIMARY_ORANGE,
+                      background: SOFT_YELLOW,
+                    }}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (draggedConjunction) handleDrop(draggedConjunction);
+                    }}
+                  >
+                    {selectedConjunction ? (
+                      <span
+                        className="font-bold cursor-pointer"
+                        style={{ color: PRIMARY_ORANGE }}
+                        onClick={handleUnselect}
+                        title="Klik untuk hapus jawaban"
+                      >
+                        {selectedConjunction.toUpperCase()}
+                        <span className="ml-1 text-gray-400">x</span>
+                      </span>
+                    ) : (
+                      <span
+                        className="text-gray-400 cursor-pointer"
+                        onClick={handleUnselect}
+                      >
+                        ____
+                      </span>
+                    )}
                   </span>
-                ) : (
-                  <span className="text-gray-400">____</span>
-                )}
-              </span>
-            </span>{" "}
-            {question.right_clause}
+                </span>
+                <span
+                  className={
+                    question.right_clause ? "" : "text-gray-400 italic"
+                  }
+                >
+                  {question.right_clause || "[Right clause]"}
+                </span>
+              </div>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap gap-4 justify-center mt-2">
           {options.map((cj) => (
-            <DraggableOption
+            <div
               key={cj}
-              value={cj}
-              isSelected={selectedConjunction === cj}
-              onDragStart={() => setDraggedConjunction(cj)}
+              draggable={true}
+              onDragStart={(e) => {
+                e.dataTransfer.setData("text/plain", cj);
+                setDraggedConjunction(cj);
+              }}
               onDragEnd={() => setDraggedConjunction(null)}
-            />
+              onClick={() => handleDrop(cj)}
+              className={`px-4 py-2 rounded-full font-bold shadow cursor-grab select-none active:cursor-grabbing ${selectedConjunction === cj ? "bg-orange-400 text-white" : "bg-white text-orange-600 border-2 border-orange-400"}`}
+              style={{
+                minWidth: 60,
+                textAlign: "center",
+                userSelect: "none",
+                WebkitUserSelect: "none",
+              }}
+            >
+              {cj.toUpperCase()}
+            </div>
           ))}
         </div>
         <button
-          className={`w-full mt-2 py-3 rounded-full text-xl font-bold shadow transition-colors duration-150 ${selectedConjunction ? "text-white" : "bg-gray-300 text-gray-500 cursor-not-allowed"}`}
-          style={selectedConjunction ? { background: PRIMARY_ORANGE } : {}}
+          className={`w-full mt-2 py-3 rounded-full text-xl font-bold shadow transition-colors duration-150 ${selectedConjunction && !feedback ? "text-white" : "bg-gray-300 text-gray-500 cursor-not-allowed"}`}
+          style={
+            selectedConjunction && !feedback
+              ? { background: PRIMARY_ORANGE }
+              : {}
+          }
           onClick={handleSubmit}
           disabled={!selectedConjunction || !!feedback}
         >

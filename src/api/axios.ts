@@ -16,8 +16,7 @@ api.interceptors.request.use(
       "/play/public", // public play endpoints
       "/leaderboard",
       "/check",
-    ].some((p) => url.includes(p));
-
+    ].some((p) => url === p || url.startsWith(p + "?"));
     if (!isPublicRequest && token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
